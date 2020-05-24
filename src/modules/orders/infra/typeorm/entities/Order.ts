@@ -24,12 +24,10 @@ class Order {
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
 
-  @Column()
-  orders_products_id: string;
-
-  @OneToMany(() => OrdersProducts, ordersProducts => ordersProducts.order_id)
-  @JoinColumn({ name: 'orders_products_id' })
-  orders_products: OrdersProducts[];
+  @OneToMany(() => OrdersProducts, ordersProducts => ordersProducts.order, {
+    cascade: ['update'],
+  })
+  order_products: OrdersProducts[];
 
   @CreateDateColumn()
   created_at: Date;

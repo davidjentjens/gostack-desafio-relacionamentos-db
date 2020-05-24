@@ -4,5 +4,5 @@ import ICreateOrdersProductsDTO from '../dtos/ICreateOrdersProductsDTO';
 
 export default interface IOrdersRepository {
   create(data: ICreateOrdersProductsDTO): Promise<OrdersProducts>;
-  findById(id: string): Promise<OrdersProducts | undefined>;
+  findAllByOrderId(order_id: string): Promise<OrdersProducts[]>;
 }

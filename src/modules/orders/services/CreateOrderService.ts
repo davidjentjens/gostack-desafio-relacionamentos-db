@@ -5,18 +5,23 @@ import AppError from '@shared/errors/AppError';
 import IProductsRepository from '@modules/products/repositories/IProductsRepository';
 import ICustomersRepository from '@modules/customers/repositories/ICustomersRepository';
 import IOrdersRepository from '../repositories/IOrdersRepository';
-import IOrdersProductsRepository from '../repositories/IOrdersProductsRepository';
 
 import Order from '../infra/typeorm/entities/Order';
 
-interface IProduct {
+interface IRequestProduct {
   id: string;
+  quantity: number;
+}
+
+interface IProduct {
+  product_id: string;
+  price: number;
   quantity: number;
 }
 
 interface IRequest {
   customer_id: string;
-  products: IProduct[];
+  products: IRequestProduct[];
 }
 
 @injectable()
@@ -30,9 +35,6 @@ class CreateOrderService {
 
     @inject('CustomersRepository')
     private customersRepository: ICustomersRepository,
-
-    @inject('OrdersProductsRepository')
-    private ordersProductsRepository: IOrdersProductsRepository,
   ) {}
 
   public async execute({
@@ -42,22 +44,36 @@ class CreateOrderService {
     const customer = await this.customersRepository.findById(customer_id);
 
     if (!customer) {
-      throw new AppError('Costumer not found', 404);
+      throw new AppError('Costumer not found');
     }
 
-    const products = await this.productsRepository.findAllById(requestProducts);
+    const products: IProduct[] = await Promise.all(
+      requestProducts.map(async requestProduct => {
+        const correspondentFoundProduct = await this.productsRepository.findById(
+          requestProduct.id,
+        );
 
-    const order = await this.ordersRepository.create({
-      customer,
-      products,
-    });
+        if (!correspondentFoundProduct) {
+          throw new AppError(`Product with id ${requestProduct.id} not found`);
+        }
 
-    const ordersProducts = products.forEach(product => {
-      const orderProduct = this.ordersProductsRepository.create({
-        order,
-        product,
-      });
-    });
+        if (correspondentFoundProduct.quantity < requestProduct.quantity) {
+          throw new AppError(
+            `Product ${correspondentFoundProduct.name} not available in the requested quantity`,
+          );
+        }
+
+        return {
+          product_id: correspondentFoundProduct.id,
+          price: correspondentFoundProduct.price,
+          quantity: requestProduct.quantity,
+        };
+      }),
+    );
+
+    const order = await this.ordersRepository.create({ customer, products });
+
+    await this.productsRepository.updateQuantity(requestProducts);
 
     return order;
   }
